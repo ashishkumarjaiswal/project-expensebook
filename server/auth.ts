@@ -1,16 +1,23 @@
 import { AuthOptions, getServerSession } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import GoogleProvider from 'next-auth/providers/google'
 
+import { env } from '@/env'
 import { prisma } from '@/lib/db'
 
 const authOptions: AuthOptions = {
     providers: [
+        GoogleProvider({
+            clientId: env.GOOGLE_CLIENT_ID,
+            clientSecret: env.GOOGLE_CLIENT_SECRET
+        }),
         CredentialsProvider({
             name: 'Credentials',
             credentials: {
                 email: { label: 'email', type: 'text', placeholder: 'Email' },
                 password: { label: 'Password', type: 'password' }
             },
+
             async authorize(credentials, req) {
                 const { email, password } = credentials as {
                     email: string

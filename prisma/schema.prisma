@@ -8,12 +8,150 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid()) @map("_id")
-  name      String
-  email     String   @unique
-  password  String
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  email    String  @unique
+  mobile   String? @unique
+  password String
+
+  // Password reset fields
+  resetPasswordToken   String @default("")
+  resetPasswordExpires Int    @default(0)
+
+  // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("Users")
+  // Relations
+  expenses        Expense[]
+  networth        Networth[]
+  createdEntities SharedEntity[]     @relation("CreatedEntities")
+  sharedEntities  SharedEntityUser[]
+  pendingInvites  PendingInvite[]
+  sharedExpenses  SharedExpense[]
+
+  @@map("users")
+}
+
+model Expense {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String   @db.ObjectId
+  amount           Float
+  place            String
+  remainingBalance Float    @default(0)
+  tags             String[] @default(["expense"])
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("expenses")
+}
+
+model Networth {
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String @db.ObjectId
+  assets      Float
+  liabilities Float
+  bankBalance Float
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("networth")
+}
+
+model SharedEntity {
+  id        String @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  createdBy String @db.ObjectId
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  creator        User               @relation("CreatedEntities", fields: [createdBy], references: [id])
+  sharedWith     SharedEntityUser[]
+  pendingInvites PendingInvite[]
+  sharedExpenses SharedExpense[]
+
+  @@map("sharedentities")
+}
+
+// Junction table for many-to-many relationship between User and SharedEntity
+model SharedEntityUser {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  sharedEntityId String   @db.ObjectId
+  access         String[] @default(["read"])
+  type           String   @default("none")
+
+  // Relations
+  user         User         @relation(fields: [userId], references: [id])
+  sharedEntity SharedEntity @relation(fields: [sharedEntityId], references: [id])
+
+  @@unique([userId, sharedEntityId])
+  @@map("shared_entity_users")
+}
+
+// Separate model for pending invites
+model PendingInvite {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String @db.ObjectId
+  entityId String @db.ObjectId
+
+  // Relations
+  user   User         @relation(fields: [userId], references: [id])
+  entity SharedEntity @relation(fields: [entityId], references: [id])
+
+  @@unique([userId, entityId])
+  @@map("pending_invites")
+}
+
+model SharedExpense {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  sharedEntityId   String   @db.ObjectId
+  amount           Float
+  place            String
+  remainingBalance Float    @default(0)
+  addedBy          String   @db.ObjectId
+  addedByName      String?
+  tags             String[] @default(["expense"])
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  sharedEntity SharedEntity @relation(fields: [sharedEntityId], references: [id])
+  user         User         @relation(fields: [addedBy], references: [id])
+
+  @@map("sharedexpenses")
+}
+
+// Enums for better type safety
+enum UserRole {
+  user
+  admin
+}
+
+enum AccessType {
+  read
+  update
+  delete
+  create
+}
+
+enum EntityType {
+  asset
+  liability
+  none
 }
